@@ -132,9 +132,11 @@ def main():
                         help="Barcode pattern (N = random barcode bases, A|C|G|T = fixed spacer bases) \n"
                              "e.g. ATNNGT means barcode is flanked by two spacers matching 'AT' in front, "
                              "followed by 'GT' \n")
+    parser.add_argument("--breads",action="store",dest="breads",type=str,required=False,default="1,2",help="Which reads have barcodes")
     parser.add_argument("--blist", action="store", dest="blist", type=str, help="List of correct barcodes",
                         default=None, required=False)
     args = parser.parse_args()
+
 
     ######################
     #       SETUP        #
@@ -206,6 +208,7 @@ def main():
             r2_bad_barcodes = open('{}_r2_bad_barcodes.txt'.format(args.outfile), 'w')
 
 
+
     ######################
     #  Extract barcodes  #
     ######################
@@ -216,39 +219,92 @@ def main():
         assert r1.id == r2.id
 
         # === Barcode pattern ===
+        bad_r1_barcode=0
+        bad_r2_barcode=0
         if args.bpattern is not None:
+            #input(args.breads)
+
             # Remove new line '\n' from str and separate using variables
-            r1, r1_barcode = extract_barcode(r1, plen)
-            r2, r2_barcode = extract_barcode(r2, plen)
+            if args.breads == "1,2" or args.breads == "1":
+                #input('extracting r1')
+                r1, r1_barcode = extract_barcode(r1, plen)
+                if re.search("[^ACGT]", r1_barcode) is not None:
+                    bad_r1_barcode = 1
+
+            if args.breads == "1,2" or args.breads == "2":
+                #input('extracting r2')
+                r2, r2_barcode = extract_barcode(r2, plen)
+                if re.search("[^ACGT]", r1_barcode) is not None:
+                    bad_r2_barcode = 1
+            #input(r1)
+            #input(r2)
 
             # Check to see if barcode is valid
-            if re.search("[^ACGT]", r1_barcode) is not None or re.search("[^ACGT]", r2_barcode) is not None:
+            #if re.search("[^ACGT]", r1_barcode) is not None or re.search("[^ACGT]", r2_barcode) is not None:
+            if bad_r1_barcode or bad_r2_barcode:
                 bad_barcode += 1
             else:
                 # Count barcode bases
-                r1_barcode_counter += seq_to_mat(r1_barcode, nuc_dict)
-                r2_barcode_counter += seq_to_mat(r2_barcode, nuc_dict)
+                if args.breads == "1,2":
+                    r1_barcode_counter += seq_to_mat(r1_barcode, nuc_dict)
+                    r2_barcode_counter += seq_to_mat(r2_barcode, nuc_dict)
 
-                # Add barcode and read number to header
-                r1_bc = ''.join([r1_barcode[x] for x in b_index])
-                r2_bc = ''.join([r2_barcode[x] for x in b_index])
+                    # Add barcode and read number to header
+                    r1_bc = ''.join([r1_barcode[x] for x in b_index])
+                    r2_bc = ''.join([r2_barcode[x] for x in b_index])
 
-                r1.id = '{}|{}.{}/{}'.format(r1.id.split(" ")[0], r1_bc, r2_bc, "1")
-                r2.id = '{}|{}.{}/{}'.format(r2.id.split(" ")[0], r1_bc, r2_bc, "2")
-                r1.description = r1.id
-                r2.description = r2.id
+                    r1.id = '{}|{}.{}/{}'.format(r1.id.split(" ")[0], r1_bc, r2_bc, "1")
+                    r2.id = '{}|{}.{}/{}'.format(r2.id.split(" ")[0], r1_bc, r2_bc, "2")
+                    r1.description = r1.id
+                    r2.description = r2.id
 
-                r1_spacer = ''.join([r1_barcode[x] for x in s_index])
-                r2_spacer = ''.join([r2_barcode[x] for x in s_index])
+                    r1_spacer = ''.join([r1_barcode[x] for x in s_index])
+                    r2_spacer = ''.join([r2_barcode[x] for x in s_index])
 
-                # Check if spacer is correct
-                if r1_spacer == spacer and r2_spacer == spacer:
-                    good_barcode += 1
-                    # Write read to output file
-                    SeqIO.write(r1, r1_output, "fastq")
-                    SeqIO.write(r2, r2_output, "fastq")
+                    # Check if spacer is correct
+                    if r1_spacer == spacer and r2_spacer == spacer:
+                        good_barcode += 1
+                        # Write read to output file
+                        SeqIO.write(r1, r1_output, "fastq")
+                        SeqIO.write(r2, r2_output, "fastq")
+                    else:
+                        bad_spacer += 1
+                elif args.breads == "1":
+                    r1_barcode_counter += seq_to_mat(r1_barcode, nuc_dict)
+                    r1_bc = ''.join([r1_barcode[x] for x in b_index])
+
+                    r1.id = '{}|{}/{}'.format(r1.id.split(" ")[0], r1_bc, "1")
+                    r2.id = '{}|{}/{}'.format(r2.id.split(" ")[0], r1_bc, "2")
+                    r1.description = r1.id
+                    r2.description = r2.id
+
+                    r1_spacer = ''.join([r1_barcode[x] for x in s_index])
+                    if r1_spacer == spacer:
+                        good_barcode += 1
+                        # Write read to output file
+                        SeqIO.write(r1, r1_output, "fastq")
+                        SeqIO.write(r2, r2_output, "fastq")
+                    else:
+                        bad_spacer += 1
+                elif args.breads == "2":
+                    r2_barcode_counter += seq_to_mat(r2_barcode, nuc_dict)
+                    r2_bc = ''.join([r2_barcode[x] for x in b_index])
+
+                    r1.id = '{}|{}/{}'.format(r1.id.split(" ")[0], r2_bc, "1")
+                    r2.id = '{}|{}/{}'.format(r2.id.split(" ")[0], r2_bc, "2")
+                    r1.description = r1.id
+                    r2.description = r2.id
+
+                    r2_spacer = ''.join([r2_barcode[x] for x in s_index])
+                    if r2_spacer == spacer:
+                        good_barcode += 1
+                        # Write read to output file
+                        SeqIO.write(r1, r1_output, "fastq")
+                        SeqIO.write(r2, r2_output, "fastq")
+                    else:
+                        bad_spacer += 1
                 else:
-                    bad_spacer += 1
+                    print(args.breads + " is not a valid value for --breads")
 
         # === Barcode list ===
         else:

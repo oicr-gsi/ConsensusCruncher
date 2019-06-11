@@ -75,6 +75,9 @@ def fastq2bam(args):
         extractb_cmd = "{}/ConsensusCruncher/extract_barcodes.py --read1 {} --read2 {} --outfile {} --blist {}".format(
             code_dir, args.fastq1, args.fastq2, outfile, args.blist)
 
+    if args.breads:
+        extractb_cmd = extractb_cmd + " --breads " + args.breads
+
     print(extractb_cmd)
     os.system(extractb_cmd)
 
@@ -90,7 +93,7 @@ def fastq2bam(args):
         if not os.path.exists(barcode_dist_dir) and os.access(args.output, os.W_OK):
             os.makedirs(barcode_dist_dir)
 
-        # Move files 
+        # Move files
         os.rename('{}/{}_r1_bad_barcodes.txt'.format(fastq_dir, filename),
               '{}/{}_r1_bad_barcodes.txt'.format(bad_barcode_dir, filename))
         os.rename('{}/{}_r2_bad_barcodes.txt'.format(fastq_dir, filename),
@@ -353,6 +356,7 @@ if __name__ == '__main__':
     ref_help = "Reference (BWA index). [MANDATORY]"
     genome_help = "Genome version (e.g. hg19 or hg38), default: hg19"
     bpattern_help = "Barcode pattern (N = random barcode bases, A|C|G|T = fixed spacer bases). [MANDATORY]"
+    breads_help = "Which reads have barcodes.  Default is 1,2.  Can alternatively be set to 1 or 2"
     blist_help = "List of barcodes (Text file with unique barcodes on each line). [MANDATORY]"
     bdelim_help = "Delimiter before barcode in read name " \
                   "(e.g. '|' in 'HWI-D00331:196:C900FANXX:7:1110:14056:43945|TTTT')"
@@ -415,6 +419,7 @@ if __name__ == '__main__':
     sub_a.add_argument('-r', '--ref', metavar="REF", help=ref_help, type=str)
     sub_a.add_argument('-s', '--samtools', metavar="SAMTOOLS", help=samtools_help, type=str)
     sub_a.add_argument('-p', '--bpattern', metavar="PATTERN", type=str, help=bpattern_help)
+    sub_a.add_argument('--breads',metavar="BARCODEDREADS",type=str,help=breads_help)
     sub_a.add_argument('-l', '--blist', metavar="LIST", type=str, help=blist_help)
     sub_a.set_defaults(func=fastq2bam)
 
