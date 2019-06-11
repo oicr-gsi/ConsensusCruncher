@@ -134,6 +134,9 @@ def main():
                              "followed by 'GT' \n")
     parser.add_argument("--blist", action="store", dest="blist", type=str, help="List of correct barcodes",
                         default=None, required=False)
+    parser.add_argument("--skipcheck", action="store_true", dest="skipcheck", help="Skip the barcode check",
+                        default=None, required=False)
+
     args = parser.parse_args()
 
     ######################
@@ -192,8 +195,9 @@ def main():
             raise ValueError("There is one or more barcodes in the list that do not end with 'T'.")
         # Check barcodes in list are not overlapping as its indicative of faulty design
         # (Difficult to differentiate whether the shorter or longer barcode is correct)
-        elif check_overlap(blist):
-            raise ValueError("There are overlapping barcodes in the list (difficult to determine which barcode is correct).")
+        elif not args.skipcheck:
+            if check_overlap(blist):
+                raise ValueError("There are overlapping barcodes in the list (difficult to determine which barcode is correct).")
         else:
             # Barcode counter: create dictionary with barcodes as keys and values as 0
             # - Barcodes may be of different lengths, so a tally of each barcode occurrence
