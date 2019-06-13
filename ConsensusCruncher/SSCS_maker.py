@@ -55,6 +55,11 @@
 ##############################
 #        Load Modules        #
 ##############################
+
+import os
+import matplotlib as mpl
+if os.environ.get('DISPLAY', '') == '':
+    mpl.use('Agg')
 import pysam  # Need to install
 import collections
 import re
@@ -63,10 +68,6 @@ from random import *
 from itertools import chain
 import argparse
 import matplotlib.pyplot as plt
-import os
-import matplotlib as mpl
-if os.environ.get('DISPLAY', '') == '':
-    mpl.use('Agg')
 import math
 import time
 
