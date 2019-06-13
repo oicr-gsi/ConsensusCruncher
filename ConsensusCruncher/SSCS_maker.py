@@ -63,6 +63,10 @@ from random import *
 from itertools import chain
 import argparse
 import matplotlib.pyplot as plt
+import os
+import matplotlib as mpl
+if os.environ.get('DISPLAY', '') == '':
+    mpl.use('Agg')
 import math
 import time
 
