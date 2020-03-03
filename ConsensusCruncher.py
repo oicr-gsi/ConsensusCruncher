@@ -105,7 +105,7 @@ def fastq2bam(args):
     # BWA Align #
     #############
     # Command split into chunks and bwa_id retained as str repr
-    picard = "java -jar /mnt/work1/software/picard/2.10.9/picard.jar AddOrReplaceReadGroups"
+    picard = "java -jar /oicr/local/analysis/sw/picard/picard-tools-2.4.1/picard.jar AddOrReplaceReadGroups"
     
     bwa_cmd = args.bwa + 'mem -M -t4'
     
