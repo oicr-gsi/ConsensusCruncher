@@ -81,8 +81,7 @@ def fastq2bam(args):
     print(extractb_cmd)
     os.system(extractb_cmd)
 
-
-    #Create directories for bad barcodes and barcode distribution histograms
+    # Create directories for bad barcodes and barcode distribution histograms
     if args.blist is not None:
        bad_barcode_dir = '{}/fastq_tag/bad_barcode'.format(args.output)
        barcode_dist_dir = '{}/fastq_tag/barcode_dist'.format(args.output)
@@ -93,13 +92,13 @@ def fastq2bam(args):
        if not os.path.exists(barcode_dist_dir) and os.access(args.output, os.W_OK):
            os.makedirs(barcode_dist_dir)
 
-        # Move files
-        os.rename('{}/{}_r1_bad_barcodes.txt'.format(fastq_dir, filename),
-              '{}/{}_r1_bad_barcodes.txt'.format(bad_barcode_dir, filename))
-        os.rename('{}/{}_r2_bad_barcodes.txt'.format(fastq_dir, filename),
-              '{}/{}_r2_bad_barcodes.txt'.format(bad_barcode_dir, filename))
-        os.rename('{}/{}_barcode_stats.png'.format(fastq_dir, filename),
-              '{}/{}_barcode_stats.png'.format(barcode_dist_dir, filename))
+       # Move files
+       os.rename('{}/{}_r1_bad_barcodes.txt'.format(fastq_dir, filename),
+                 '{}/{}_r1_bad_barcodes.txt'.format(bad_barcode_dir, filename))
+       os.rename('{}/{}_r2_bad_barcodes.txt'.format(fastq_dir, filename),
+                 '{}/{}_r2_bad_barcodes.txt'.format(bad_barcode_dir, filename))
+       os.rename('{}/{}_barcode_stats.png'.format(fastq_dir, filename),
+                 '{}/{}_barcode_stats.png'.format(barcode_dist_dir, filename))
 
     #############
     # BWA Align #
@@ -109,13 +108,13 @@ def fastq2bam(args):
     
     bwa_cmd = args.bwa + 'mem -M -t4'
     
-    #bwa_id = "@RG\tID:1\tSM:" + filename + "\tPL:Illumina"
+    # bwa_id = "@RG\tID:1\tSM:" + filename + "\tPL:Illumina"
     bwa_args = '{} {}_barcode_R1.fastq {}_barcode_R2.fastq'.format(args.ref, outfile, outfile)
     
     bwa_cmd = args.bwa + ' mem -M -t4 ' + bwa_args
     print(bwa_cmd)
     bwa = Popen(bwa_cmd.split(' '), stdout=PIPE)
-    #print(bwa)
+    # print(bwa)
     # # Sort BAM (BWA output piped into samtools for sorting before writing into bam)
     sam1 = Popen((args.samtools + ' view -bhS -').split(' '), stdin=bwa.stdout, stdout=PIPE)
     sam2 = Popen((args.samtools + ' sort -').split(' '), stdin=sam1.stdout,
@@ -127,7 +126,7 @@ def fastq2bam(args):
     
     # # Index BAM
     call("{} index {}/{}.sorted.bam".format(args.samtools, bam_dir, filename).split(' '))
-    
+
     
 def consensus(args):
     """
