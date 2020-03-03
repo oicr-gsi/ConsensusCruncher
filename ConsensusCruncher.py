@@ -7,6 +7,7 @@ import argparse
 import configparser
 from subprocess import Popen, PIPE, call
 
+
 def sort_index(bam, samtools):
     """
     Sort and index BAM file.
@@ -74,7 +75,6 @@ def fastq2bam(args):
         extractb_cmd = "{}/ConsensusCruncher/extract_barcodes.py --read1 {} --read2 {} --outfile {} --blist {}".format(
             code_dir, args.fastq1, args.fastq2, outfile, args.blist)
 
-    
     if args.skipcheck:
         extractb_cmd = extractb_cmd + " --skipcheck"
 
@@ -83,34 +83,34 @@ def fastq2bam(args):
 
     # Create directories for bad barcodes and barcode distribution histograms
     if args.blist is not None:
-       bad_barcode_dir = '{}/fastq_tag/bad_barcode'.format(args.output)
-       barcode_dist_dir = '{}/fastq_tag/barcode_dist'.format(args.output)
+        bad_barcode_dir = '{}/fastq_tag/bad_barcode'.format(args.output)
+        barcode_dist_dir = '{}/fastq_tag/barcode_dist'.format(args.output)
 
-       if not os.path.exists(bad_barcode_dir) and os.access(args.output, os.W_OK):
-           os.makedirs(bad_barcode_dir)
+        if not os.path.exists(bad_barcode_dir) and os.access(args.output, os.W_OK):
+            os.makedirs(bad_barcode_dir)
 
-       if not os.path.exists(barcode_dist_dir) and os.access(args.output, os.W_OK):
-           os.makedirs(barcode_dist_dir)
+        if not os.path.exists(barcode_dist_dir) and os.access(args.output, os.W_OK):
+            os.makedirs(barcode_dist_dir)
 
-       # Move files
-       os.rename('{}/{}_r1_bad_barcodes.txt'.format(fastq_dir, filename),
-                 '{}/{}_r1_bad_barcodes.txt'.format(bad_barcode_dir, filename))
-       os.rename('{}/{}_r2_bad_barcodes.txt'.format(fastq_dir, filename),
-                 '{}/{}_r2_bad_barcodes.txt'.format(bad_barcode_dir, filename))
-       os.rename('{}/{}_barcode_stats.png'.format(fastq_dir, filename),
-                 '{}/{}_barcode_stats.png'.format(barcode_dist_dir, filename))
+        # Move files
+        os.rename('{}/{}_r1_bad_barcodes.txt'.format(fastq_dir, filename),
+                  '{}/{}_r1_bad_barcodes.txt'.format(bad_barcode_dir, filename))
+        os.rename('{}/{}_r2_bad_barcodes.txt'.format(fastq_dir, filename),
+                  '{}/{}_r2_bad_barcodes.txt'.format(bad_barcode_dir, filename))
+        os.rename('{}/{}_barcode_stats.png'.format(fastq_dir, filename),
+                  '{}/{}_barcode_stats.png'.format(barcode_dist_dir, filename))
 
     #############
     # BWA Align #
     #############
     # Command split into chunks and bwa_id retained as str repr
     picard = "java -jar /oicr/local/analysis/sw/picard/picard-tools-2.4.1/picard.jar AddOrReplaceReadGroups"
-    
+
     bwa_cmd = args.bwa + 'mem -M -t4'
-    
+
     # bwa_id = "@RG\tID:1\tSM:" + filename + "\tPL:Illumina"
     bwa_args = '{} {}_barcode_R1.fastq {}_barcode_R2.fastq'.format(args.ref, outfile, outfile)
-    
+
     bwa_cmd = args.bwa + ' mem -M -t4 ' + bwa_args
     print(bwa_cmd)
     bwa = Popen(bwa_cmd.split(' '), stdout=PIPE)
@@ -118,16 +118,17 @@ def fastq2bam(args):
     # # Sort BAM (BWA output piped into samtools for sorting before writing into bam)
     sam1 = Popen((args.samtools + ' view -bhS -').split(' '), stdin=bwa.stdout, stdout=PIPE)
     sam2 = Popen((args.samtools + ' sort -').split(' '), stdin=sam1.stdout,
-                  stdout=open('{}/{}.sort.bam'.format(bam_dir, filename), 'w'))
-    
+                 stdout=open('{}/{}.sort.bam'.format(bam_dir, filename), 'w'))
+
     sam2.communicate()
-    
-    os.system(picard + ' I=' + '{}/{}.sort.bam'.format(bam_dir, filename) +' O=' + '{}/{}.sorted.bam'.format(bam_dir, filename) + ' RGID=1 ' + ' RGPL=Illumina  RGLB=lib1 RGPU=unit1 ' + ' RGSM='+ filename )
-    
+
+    os.system(picard + ' I=' + '{}/{}.sort.bam'.format(bam_dir, filename) + ' O=' + '{}/{}.sorted.bam'.format(bam_dir,
+                                                                                                              filename) + ' RGID=1 ' + ' RGPL=Illumina  RGLB=lib1 RGPU=unit1 ' + ' RGSM=' + filename)
+
     # # Index BAM
     call("{} index {}/{}.sorted.bam".format(args.samtools, bam_dir, filename).split(' '))
 
-    
+
 def consensus(args):
     """
     Using unique molecular identifiers (UMIs), duplicate reads from the same molecule are amalgamated into single-strand
@@ -428,7 +429,7 @@ if __name__ == '__main__':
     sub_a.add_argument('-s', '--samtools', metavar="SAMTOOLS", help=samtools_help, type=str)
     sub_a.add_argument('-p', '--bpattern', metavar="PATTERN", type=str, help=bpattern_help)
     sub_a.add_argument('-l', '--blist', metavar="LIST", type=str, help=blist_help)
-    sub_a.add_argument('-x', '--skipcheck', action='store_true',help=skipcheck_help)
+    sub_a.add_argument('-x', '--skipcheck', action='store_true', help=skipcheck_help)
     sub_a.set_defaults(func=fastq2bam)
 
     # Set args for 'consensus' mode
@@ -441,7 +442,7 @@ if __name__ == '__main__':
     sub_b.add_argument('--cutoff', type=float, help="Consensus cut-off, default: 0.7 (70%% of reads must have the "
                                                     "same base to form a consensus).")
     sub_b.add_argument('-d', '--bdelim', metavar="DELIMITER", type=str, help=bdelim_help)
-    sub_b.add_argument('--cleanup', choices=['True', 'False'], help=cleanup_help) # Make default
+    sub_b.add_argument('--cleanup', choices=['True', 'False'], help=cleanup_help)  # Make default
     sub_b.set_defaults(func=consensus)
 
     # Parse args
@@ -458,7 +459,7 @@ if __name__ == '__main__':
 
             # Check if required arguments provided
             if args.fastq1 is None or args.fastq2 is None or args.output is None or args.bwa is None or \
-                            args.ref is None or args.samtools is None:
+                    args.ref is None or args.samtools is None:
                 sub_a.print_help()
             # Check if either barcode pattern or list is set. At least one must be provided.
             elif args.bpattern is None and args.blist is None:
