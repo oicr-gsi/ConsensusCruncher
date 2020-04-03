@@ -87,11 +87,8 @@ def fastq2bam(args):
     if args.blist is not None:
         bad_barcode_dir = '{}/fastq_tag/bad_barcode'.format(args.output)
         barcode_dist_dir = '{}/fastq_tag/barcode_dist'.format(args.output)
-
-        if not os.path.exists(bad_barcode_dir) and os.access(args.output, os.W_OK):
-            os.makedirs(bad_barcode_dir)
-        if not os.path.exists(barcode_dist_dir) and os.access(args.output, os.W_OK):
-            os.makedirs(barcode_dist_dir)
+        os.makedirs(bad_barcode_dir, exist_ok=True)
+        os.makedirs(barcode_dist_dir, exist_ok=True)
 
         # Move files 
         os.rename('{}/{}_r1_bad_barcodes.txt'.format(fastq_dir, filename),
@@ -166,7 +163,7 @@ def consensus(args):
     # SSCS #
     ########
     # Set variables
-    os.makedirs(sample_dir + '/sscs')
+    os.makedirs(sample_dir + '/sscs', exist_ok=True)
     sscs = '{}/sscs/{}.sscs.bam'.format(sample_dir, identifier)
     sing = '{}/sscs/{}.singleton.bam'.format(sample_dir, identifier)
 
@@ -195,7 +192,7 @@ def consensus(args):
     # DCS #
     #######
     # Set variables
-    os.makedirs(sample_dir + '/dcs')
+    os.makedirs(sample_dir + '/dcs', exist_ok=True)
     dcs = '{}/dcs/{}.dcs.bam'.format(sample_dir, identifier)
     sscs_sing = '{}/dcs/{}.sscs.singleton.bam'.format(sample_dir, identifier)
 
@@ -223,7 +220,7 @@ def consensus(args):
     # Singleton Correction (SC) #
     #############################
     if args.scorrect != 'False':
-        os.makedirs(sample_dir + '/sscs_sc')
+        os.makedirs(sample_dir + '/sscs_sc', exist_ok=True)
         # Move stats and time tracker file to next dir
         os.rename('{}/dcs/{}.stats.txt'.format(sample_dir, identifier),
                   '{}/sscs/{}.stats.txt'.format(sample_dir, identifier))
@@ -272,7 +269,7 @@ def consensus(args):
         ############
         # DCS + SC #
         ############
-        os.makedirs(sample_dir + '/dcs_sc')
+        os.makedirs(sample_dir + '/dcs_sc', exist_ok=True)
         dcs_sc = '{}/dcs_sc/{}.dcs.sc.bam'.format(sample_dir, identifier)
         # Move stats and time tracker file to next dir
         os.rename('{}/sscs/{}.stats.txt'.format(sample_dir, identifier),
