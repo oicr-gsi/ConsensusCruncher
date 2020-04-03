@@ -502,6 +502,7 @@ if __name__ == '__main__':
     sub_b.add_argument(
         '--cutoff',
         type=float,
+        default=0.7,
         help="Consensus cut-off, default: 0.7 (70%% of reads must have the "
         "same base to form a consensus).")
     sub_b.add_argument(

@@ -191,7 +191,7 @@ def main():
         "       Read 3: ACTGATACCT\n"
         "       Read 4: ACTGATACTT\n"
         "   The resulting SSCS is: ACTGATACNT",
-        required=True)
+        default=0.7)
     parser.add_argument(
         "--infile",
         action="store",
