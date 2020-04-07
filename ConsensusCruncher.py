@@ -6,33 +6,28 @@ import re
 import argparse
 import configparser
 from subprocess import Popen, PIPE, call
+import pysam
+import subprocess
 
-def sort_index(bam, samtools):
+
+def sort_index(bam):
     """
-    Sort and index BAM file.
-
-    :param bam: Path to BAM file.
-    :type bam: str
-    :param samtools: Path to samtools.
-    :type samtools: str
-    :returns: Path to sorted BAM file.
+    (str) --> str
+    
+    :param bam (str): Path to BAM file.
+    
+    Sort and index BAM file and returns the path to the sorted bam
     """
-    identifier = bam.split('.bam', 1)[0]
-    sorted_bam = '{}.sorted.bam'.format(identifier)
-
-    sam1 = Popen((samtools + ' view -bu ' + bam).split(' '), stdout=PIPE)
-    sam2 = Popen(
-        (samtools + ' sort -').split(' '),
-        stdin=sam1.stdout,
-        stdout=open(
-            sorted_bam,
-            'w'))
-    sam2.communicate()
-    os.remove(bam)
-    call("{} index {}".format(samtools, sorted_bam).split(' '))
-
+    
+    bam_dir = os.path.dirname(bam)
+    sorted_bam = os.path.basename(bam).split('.bam', 1)[0] + '.sorted.bam'
+    sorted_bam = os.path.join(bam_dir, sorted_bam)
+    pysam.sort('-o', sorted_bam, bam)
+    pysam.index(sorted_bam)
+    
     return sorted_bam
-
+    
+    
 
 def fastq2bam(args):
     """
@@ -87,11 +82,8 @@ def fastq2bam(args):
     if args.blist is not None:
         bad_barcode_dir = '{}/fastq_tag/bad_barcode'.format(args.output)
         barcode_dist_dir = '{}/fastq_tag/barcode_dist'.format(args.output)
-
-        if not os.path.exists(bad_barcode_dir) and os.access(args.output, os.W_OK):
-            os.makedirs(bad_barcode_dir)
-        if not os.path.exists(barcode_dist_dir) and os.access(args.output, os.W_OK):
-            os.makedirs(barcode_dist_dir)
+        os.makedirs(bad_barcode_dir, exist_ok=True)
+        os.makedirs(barcode_dist_dir, exist_ok=True)
 
         # Move files 
         os.rename('{}/{}_r1_bad_barcodes.txt'.format(fastq_dir, filename),
@@ -104,33 +96,24 @@ def fastq2bam(args):
     #############
     # BWA Align #
     #############
-    # Command split into chunks and bwa_id retained as str repr
-    picard =  'java -jar ' + args.picard + ' AddOrReplaceReadGroups' # "java -jar /mnt/work1/software/picard/2.10.9/picard.jar AddOrReplaceReadGroups"
-    
-    #bwa_cmd = args.bwa + ' mem -M -t4 -R'
-    #bwa_id = "@RG\tID:1\tSM:" + filename + "\tPL:Illumina"
         
-    bwa_cmd = args.bwa + 'mem -M -t4'
-    
-    #bwa_id = "@RG\tID:1\tSM:" + filename + "\tPL:Illumina"
     bwa_args = '{} {}_barcode_R1.fastq {}_barcode_R2.fastq'.format(args.ref, outfile, outfile)
-    
-    bwa_cmd = args.bwa + ' mem -M -t4 ' + bwa_args
+    samfile = os.path.join(bam_dir, os.path.basename(outfile) + '.sam')
+    bwa_cmd = args.bwa + ' mem -M -t4 ' + bwa_args + ' > ' + samfile
     print(bwa_cmd)
-    bwa = Popen(bwa_cmd.split(' '), stdout=PIPE)
-    #print(bwa)
-    # # Sort BAM (BWA output piped into samtools for sorting before writing into bam)
-    sam1 = Popen((args.samtools + ' view -bhS -').split(' '), stdin=bwa.stdout, stdout=PIPE)
-    sam2 = Popen((args.samtools + ' sort -').split(' '), stdin=sam1.stdout,
-                  stdout=open('{}/{}.sort.bam'.format(bam_dir, filename), 'w'))
-    
-    sam2.communicate()
-    
-    os.system(picard + ' I=' + '{}/{}.sort.bam'.format(bam_dir, filename) +' O=' + '{}/{}.sorted.bam'.format(bam_dir, filename) + ' RGID=1 ' + ' RGPL=Illumina  RGLB=lib1 RGPU=unit1 ' + ' RGSM='+ filename )
-    
-    # Index BAM
-    call("{} index {}/{}.sorted.bam".format(args.samtools, bam_dir, filename).split(' '))
-    
+    subprocess.call(bwa_cmd, shell=True)
+    # convert sam file to bam file
+    bamfile = samfile.replace('.sam', '.bam')
+    pysam.view('-b', '-h', '-o', bamfile, samfile, catch_stdout=False)    
+    # Sort BAM
+    sortbam = bamfile.replace('.bam', '.sort.bam')
+    pysam.sort('-o', sortbam, bamfile)
+    sortedbam = sortbam.replace('.sort.bam', '.sorted.bam')
+    # add read group using picard
+    subprocess.call('java -jar ' + args.picard + ' AddOrReplaceReadGroups' + ' I=' + sortbam +' O=' + sortedbam + ' RGID=1 ' + ' RGPL=Illumina  RGLB=lib1 RGPU=unit1 ' + ' RGSM='+ os.path.basename(sortedbam).replace('.sorted.bam', ''), shell=True)
+    # index sorted bam
+    pysam.index(sortedbam)
+        
     
 def consensus(args):
     """
@@ -166,7 +149,7 @@ def consensus(args):
     # SSCS #
     ########
     # Set variables
-    os.makedirs(sample_dir + '/sscs')
+    os.makedirs(sample_dir + '/sscs', exist_ok=True)
     sscs = '{}/sscs/{}.sscs.bam'.format(sample_dir, identifier)
     sing = '{}/sscs/{}.singleton.bam'.format(sample_dir, identifier)
 
@@ -188,14 +171,14 @@ def consensus(args):
     os.system(sscs_cmd)
 
     # Sort and index BAM files
-    sscs = sort_index(sscs, args.samtools)
-    sing = sort_index(sing, args.samtools)
+    sscs = sort_index(sscs)
+    sing = sort_index(sing)
 
     #######
     # DCS #
     #######
     # Set variables
-    os.makedirs(sample_dir + '/dcs')
+    os.makedirs(sample_dir + '/dcs', exist_ok=True)
     dcs = '{}/dcs/{}.dcs.bam'.format(sample_dir, identifier)
     sscs_sing = '{}/dcs/{}.sscs.singleton.bam'.format(sample_dir, identifier)
 
@@ -216,14 +199,14 @@ def consensus(args):
     os.system(dcs_cmd)
 
     # Sort and index BAM files
-    dcs = sort_index(dcs, args.samtools)
-    sscs_sing = sort_index(sscs_sing, args.samtools)
+    dcs = sort_index(dcs)
+    sscs_sing = sort_index(sscs_sing)
 
     #############################
     # Singleton Correction (SC) #
     #############################
     if args.scorrect != 'False':
-        os.makedirs(sample_dir + '/sscs_sc')
+        os.makedirs(sample_dir + '/sscs_sc', exist_ok=True)
         # Move stats and time tracker file to next dir
         os.rename('{}/dcs/{}.stats.txt'.format(sample_dir, identifier),
                   '{}/sscs/{}.stats.txt'.format(sample_dir, identifier))
@@ -244,35 +227,32 @@ def consensus(args):
             sample_dir, identifier)
         os.rename(
             '{}/sscs/{}.sscs.correction.bam'.format(sample_dir, identifier), sscs_cor)
-        sscs_cor = sort_index(sscs_cor, args.samtools)
+        sscs_cor = sort_index(sscs_cor)
 
         sing_cor = '{}/sscs_sc/{}.singleton.correction.bam'.format(
             sample_dir, identifier)
         os.rename(
             '{}/sscs/{}.singleton.correction.bam'.format(sample_dir, identifier), sing_cor)
-        sing_cor = sort_index(sing_cor, args.samtools)
+        sing_cor = sort_index(sing_cor)
 
         uncorrected = '{}/sscs_sc/{}.uncorrected.bam'.format(
             sample_dir, identifier)
         os.rename('{}/sscs/{}.uncorrected.bam'.format(sample_dir,
                                                       identifier), uncorrected)
-        uncorrected = sort_index(uncorrected, args.samtools)
+        uncorrected = sort_index(uncorrected)
 
         #############
         # SSCS + SC #
         #############
         # Merge corrected singletons with consensus sequences
         sscs_sc = '{}/sscs_sc/{}.sscs.sc.bam'.format(sample_dir, identifier)
-        merge_sc = "{} merge {} {} {} {}".format(
-            args.samtools, sscs_sc, sscs, sscs_cor, sing_cor)
-        print(merge_sc)
-        call(merge_sc.split(' '))
-        sscs_sc = sort_index(sscs_sc, args.samtools)
+        pysam.merge("-f", sscs_sc, sscs, sscs_cor, sing_cor)
+        sscs_sc = sort_index(sscs_sc)
 
         ############
         # DCS + SC #
         ############
-        os.makedirs(sample_dir + '/dcs_sc')
+        os.makedirs(sample_dir + '/dcs_sc', exist_ok=True)
         dcs_sc = '{}/dcs_sc/{}.dcs.sc.bam'.format(sample_dir, identifier)
         # Move stats and time tracker file to next dir
         os.rename('{}/sscs/{}.stats.txt'.format(sample_dir, identifier),
@@ -290,22 +270,19 @@ def consensus(args):
         os.system(dcs_sc_cmd)
 
         # Sort and index BAM files
-        dcs_sc = sort_index(dcs_sc, args.samtools)
+        dcs_sc = sort_index(dcs_sc)
         sscs_sc_sing = '{}/dcs_sc/{}.sscs.sc.singleton.bam'.format(
             sample_dir, identifier)
-        sscs_sc_sing = sort_index(sscs_sc_sing, args.samtools)
+        sscs_sc_sing = sort_index(sscs_sc_sing)
 
         ########################
         # All Unique Molecules #
         ########################
         # Merge DCS_SC + SSCS_SC singletons + uncorrected singletons
-        all_unique = '{}/dcs_sc/{}.all.unique.dcs.bam'.format(
-            sample_dir, identifier)
-        merge_all_unique = "{} merge {} {} {} {}".format(
-            args.samtools, all_unique, dcs_sc, sscs_sc_sing, uncorrected).split(' ')
+        all_unique = '{}/dcs_sc/{}.all.unique.dcs.bam'.format(sample_dir, identifier)
+        pysam.merge("-f", all_unique, dcs_sc, sscs_sc_sing, uncorrected)
         print(all_unique)
-        call(merge_all_unique)
-        all_unique = sort_index(all_unique, args.samtools)
+        all_unique = sort_index(all_unique)
 
         # Move stats and time tracker file to sample_dir
         os.rename('{}/dcs_sc/{}.stats.txt'.format(sample_dir, identifier),
@@ -391,7 +368,6 @@ if __name__ == '__main__':
                     " '_R'."
     bwa_help = "Path to executable bwa. [MANDATORY]"
     picard_help = "Path to executable picard add readgroups. [MANDATORY]"
-    samtools_help = "Path to executable samtools. [MANDATORY]"
     ref_help = "Reference (BWA index). [MANDATORY]"
     genome_help = "Genome version (e.g. hg19 or hg38), default: hg19"
     bpattern_help = "Barcode pattern (N = random barcode bases, A|C|G|T = fixed spacer bases)."
@@ -424,7 +400,6 @@ if __name__ == '__main__':
                     "bwa": bwa_help,
                     "picard": picard_help,
                     "ref": ref_help,
-                    "samtools": samtools_help,
                     "bpattern": None,
                     "blist": None,
                     "bam": bam_help,                   
@@ -456,7 +431,6 @@ if __name__ == '__main__':
     sub_a.add_argument('-b', '--bwa', metavar="BWA", help=bwa_help, type=str)
     sub_a.add_argument('-g', '--picard', metavar="PICARD", help=picard_help, type=str)
     sub_a.add_argument('-r', '--ref', metavar="REF", help=ref_help, type=str)
-    sub_a.add_argument('-s', '--samtools', metavar="SAMTOOLS", help=samtools_help, type=str)
     sub_a.add_argument('-p', '--bpattern', metavar="PATTERN", type=str, help=bpattern_help)
     sub_a.add_argument('-l', '--blist', metavar="LIST", type=str, help=blist_help)
     sub_a.set_defaults(func=fastq2bam)
@@ -478,12 +452,6 @@ if __name__ == '__main__':
         type=str,
         help=coutput_help)
     sub_b.add_argument(
-        '-s',
-        '--samtools',
-        metavar="SAMTOOLS",
-        help=samtools_help,
-        type=str)
-    sub_b.add_argument(
         '--scorrect',
         help=scorrect_help,
         choices=[
@@ -502,6 +470,7 @@ if __name__ == '__main__':
     sub_b.add_argument(
         '--cutoff',
         type=float,
+        default=0.7,
         help="Consensus cut-off, default: 0.7 (70%% of reads must have the "
         "same base to form a consensus).")
     sub_b.add_argument(
@@ -532,7 +501,7 @@ if __name__ == '__main__':
 
             # Check if required arguments provided
             if args.fastq1 is None or args.fastq2 is None or args.output is None or args.bwa is None or \
-                    args.ref is None or args.samtools is None:
+                    args.ref is None:
                 sub_a.print_help()
             # Check if either barcode pattern or list is set. At least one must
             # be provided.
@@ -558,7 +527,7 @@ if __name__ == '__main__':
             if sub_args.config:
                 sub_b.parse_known_args(remaining_args)
             # Check if required arguments provided
-            if args.bam is None or args.c_output is None or args.samtools is None:
+            if args.bam is None or args.c_output is None:
                 sub_b.print_help()
             else:
                 args.func(args)

@@ -132,6 +132,32 @@ def extract_barcode(read, plen):
     return read_b, barcode
 
 
+def check_gzipped(file):
+    '''
+    (str) -> bool
+    :param file (str): Path to file
+        
+    Return True if file is gzipped
+    '''
+    
+    # open file in rb mode
+    infile = open(file, 'rb')
+    header = infile.readline()
+    infile.close()
+    if header.startswith(b'\x1f\x8b\x08'):
+        return True
+    else:
+        return False
+    
+
+class InputFileError(Exception):
+    '''
+    Raise when input files cannot be open
+    '''
+    pass
+
+
+
 #######################
 #    Main Function    #
 #######################
@@ -184,13 +210,24 @@ def main():
     ######################
     # === Initialize input and output files ===
     # Check if file is zipped
-    if 'gz' in args.read1:
-        read1 = SeqIO.parse(gzopen(args.read1, "rt"), "fastq")
-        read2 = SeqIO.parse(gzopen(args.read2, "rt"), "fastq")
+    if check_gzipped(args.read1) and check_gzipped(args.read2):
+        # input files are gzipped
+        try:
+            read1 = SeqIO.parse(gzopen(args.read1, "rt"), "fastq")
+            read2 = SeqIO.parse(gzopen(args.read2, "rt"), "fastq")
+        except:
+            raise InputFileError('Cannot open gzipped files:\n{0}\n{1}'.format(args.read1, args.read2))
+    elif check_gzipped(args.read1) == False and check_gzipped(args.read2) == False:
+        # input files are not gzipped, open files for reading with Universal Newline Support
+        try:
+            read1 = SeqIO.parse(open(args.read1, "rU"), "fastq")
+            read2 = SeqIO.parse(open(args.read2, "rU"), "fastq")
+        except:
+            raise InputFileError('Cannot open unzipped files:\n{0}\n{1}'.format(args.read1, args.read2))
     else:
-        read1 = SeqIO.parse(open(args.read1, "rU"), "fastq")
-        read2 = SeqIO.parse(open(args.read2, "rU"), "fastq")
-
+        # requires both files to be gzipped/unzipped or cannot open file for other reasons
+        raise InputFileError('Cannot open files:\n{0}\n{1}'.format(args.read1, args.read2))
+        
     r1_output = open('{}_barcode_R1.fastq'.format(args.outfile), "w")
     r2_output = open('{}_barcode_R2.fastq'.format(args.outfile), "w")
     stats = open(
