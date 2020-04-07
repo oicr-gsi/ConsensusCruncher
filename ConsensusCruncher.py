@@ -6,33 +6,27 @@ import re
 import argparse
 import configparser
 from subprocess import Popen, PIPE, call
+import pysam
 
-def sort_index(bam, samtools):
+
+def sort_index(bam):
     """
-    Sort and index BAM file.
-
-    :param bam: Path to BAM file.
-    :type bam: str
-    :param samtools: Path to samtools.
-    :type samtools: str
-    :returns: Path to sorted BAM file.
+    (str) --> str
+    
+    :param bam (str): Path to BAM file.
+    
+    Sort and index BAM file and returns the path to the sorted bam
     """
-    identifier = bam.split('.bam', 1)[0]
-    sorted_bam = '{}.sorted.bam'.format(identifier)
-
-    sam1 = Popen((samtools + ' view -bu ' + bam).split(' '), stdout=PIPE)
-    sam2 = Popen(
-        (samtools + ' sort -').split(' '),
-        stdin=sam1.stdout,
-        stdout=open(
-            sorted_bam,
-            'w'))
-    sam2.communicate()
-    os.remove(bam)
-    call("{} index {}".format(samtools, sorted_bam).split(' '))
-
+    
+    bam_dir = os.path.dirname(bam)
+    sorted_bam = os.path.basename(bam).split('.bam', 1)[0] + '.sorted.bam'
+    sorted_bam = os.path.join(bam_dir, sorted_bam)
+    pysam.sort('-o', sorted_bam, bam)
+    pysam.index(sorted_bam)
+    
     return sorted_bam
-
+    
+    
 
 def fastq2bam(args):
     """
@@ -185,8 +179,8 @@ def consensus(args):
     os.system(sscs_cmd)
 
     # Sort and index BAM files
-    sscs = sort_index(sscs, args.samtools)
-    sing = sort_index(sing, args.samtools)
+    sscs = sort_index(sscs)
+    sing = sort_index(sing)
 
     #######
     # DCS #
@@ -213,8 +207,8 @@ def consensus(args):
     os.system(dcs_cmd)
 
     # Sort and index BAM files
-    dcs = sort_index(dcs, args.samtools)
-    sscs_sing = sort_index(sscs_sing, args.samtools)
+    dcs = sort_index(dcs)
+    sscs_sing = sort_index(sscs_sing)
 
     #############################
     # Singleton Correction (SC) #
@@ -241,19 +235,19 @@ def consensus(args):
             sample_dir, identifier)
         os.rename(
             '{}/sscs/{}.sscs.correction.bam'.format(sample_dir, identifier), sscs_cor)
-        sscs_cor = sort_index(sscs_cor, args.samtools)
+        sscs_cor = sort_index(sscs_cor)
 
         sing_cor = '{}/sscs_sc/{}.singleton.correction.bam'.format(
             sample_dir, identifier)
         os.rename(
             '{}/sscs/{}.singleton.correction.bam'.format(sample_dir, identifier), sing_cor)
-        sing_cor = sort_index(sing_cor, args.samtools)
+        sing_cor = sort_index(sing_cor)
 
         uncorrected = '{}/sscs_sc/{}.uncorrected.bam'.format(
             sample_dir, identifier)
         os.rename('{}/sscs/{}.uncorrected.bam'.format(sample_dir,
                                                       identifier), uncorrected)
-        uncorrected = sort_index(uncorrected, args.samtools)
+        uncorrected = sort_index(uncorrected)
 
         #############
         # SSCS + SC #
@@ -264,7 +258,7 @@ def consensus(args):
             args.samtools, sscs_sc, sscs, sscs_cor, sing_cor)
         print(merge_sc)
         call(merge_sc.split(' '))
-        sscs_sc = sort_index(sscs_sc, args.samtools)
+        sscs_sc = sort_index(sscs_sc)
 
         ############
         # DCS + SC #
@@ -287,10 +281,10 @@ def consensus(args):
         os.system(dcs_sc_cmd)
 
         # Sort and index BAM files
-        dcs_sc = sort_index(dcs_sc, args.samtools)
+        dcs_sc = sort_index(dcs_sc)
         sscs_sc_sing = '{}/dcs_sc/{}.sscs.sc.singleton.bam'.format(
             sample_dir, identifier)
-        sscs_sc_sing = sort_index(sscs_sc_sing, args.samtools)
+        sscs_sc_sing = sort_index(sscs_sc_sing)
 
         ########################
         # All Unique Molecules #
@@ -302,7 +296,7 @@ def consensus(args):
             args.samtools, all_unique, dcs_sc, sscs_sc_sing, uncorrected).split(' ')
         print(all_unique)
         call(merge_all_unique)
-        all_unique = sort_index(all_unique, args.samtools)
+        all_unique = sort_index(all_unique)
 
         # Move stats and time tracker file to sample_dir
         os.rename('{}/dcs_sc/{}.stats.txt'.format(sample_dir, identifier),
