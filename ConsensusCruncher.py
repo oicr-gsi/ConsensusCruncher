@@ -7,6 +7,7 @@ import argparse
 import configparser
 from subprocess import Popen, PIPE, call
 import pysam
+import subprocess
 
 
 def sort_index(bam):
@@ -95,33 +96,24 @@ def fastq2bam(args):
     #############
     # BWA Align #
     #############
-    # Command split into chunks and bwa_id retained as str repr
-    picard =  'java -jar ' + args.picard + ' AddOrReplaceReadGroups' # "java -jar /mnt/work1/software/picard/2.10.9/picard.jar AddOrReplaceReadGroups"
-    
-    #bwa_cmd = args.bwa + ' mem -M -t4 -R'
-    #bwa_id = "@RG\tID:1\tSM:" + filename + "\tPL:Illumina"
         
-    bwa_cmd = args.bwa + 'mem -M -t4'
-    
-    #bwa_id = "@RG\tID:1\tSM:" + filename + "\tPL:Illumina"
     bwa_args = '{} {}_barcode_R1.fastq {}_barcode_R2.fastq'.format(args.ref, outfile, outfile)
-    
-    bwa_cmd = args.bwa + ' mem -M -t4 ' + bwa_args
+    samfile = os.path.join(bam_dir, os.path.basename(outfile) + '.sam')
+    bwa_cmd = args.bwa + ' mem -M -t4 ' + bwa_args + ' > ' + samfile
     print(bwa_cmd)
-    bwa = Popen(bwa_cmd.split(' '), stdout=PIPE)
-    #print(bwa)
-    # # Sort BAM (BWA output piped into samtools for sorting before writing into bam)
-    sam1 = Popen((args.samtools + ' view -bhS -').split(' '), stdin=bwa.stdout, stdout=PIPE)
-    sam2 = Popen((args.samtools + ' sort -').split(' '), stdin=sam1.stdout,
-                  stdout=open('{}/{}.sort.bam'.format(bam_dir, filename), 'w'))
-    
-    sam2.communicate()
-    
-    os.system(picard + ' I=' + '{}/{}.sort.bam'.format(bam_dir, filename) +' O=' + '{}/{}.sorted.bam'.format(bam_dir, filename) + ' RGID=1 ' + ' RGPL=Illumina  RGLB=lib1 RGPU=unit1 ' + ' RGSM='+ filename )
-    
-    # Index BAM
-    call("{} index {}/{}.sorted.bam".format(args.samtools, bam_dir, filename).split(' '))
-    
+    subprocess.call(bwa_cmd, shell=True)
+    # convert sam file to bam file
+    bamfile = samfile.replace('.sam', '.bam')
+    pysam.view('-b', '-h', '-o', bamfile, samfile, catch_stdout=False)    
+    # Sort BAM
+    sortbam = bamfile.replace('.bam', '.sort.bam')
+    pysam.sort('-o', sortbam, bamfile)
+    sortedbam = sortbam.replace('.sort.bam', '.sorted.bam')
+    # add read group using picard
+    subprocess.call('java -jar ' + args.picard + ' AddOrReplaceReadGroups' + ' I=' + sortbam +' O=' + sortedbam + ' RGID=1 ' + ' RGPL=Illumina  RGLB=lib1 RGPU=unit1 ' + ' RGSM='+ os.path.basename(sortedbam).replace('.sorted.bam', ''), shell=True)
+    # index sorted bam
+    pysam.index(sortedbam)
+        
     
 def consensus(args):
     """
@@ -254,10 +246,7 @@ def consensus(args):
         #############
         # Merge corrected singletons with consensus sequences
         sscs_sc = '{}/sscs_sc/{}.sscs.sc.bam'.format(sample_dir, identifier)
-        merge_sc = "{} merge {} {} {} {}".format(
-            args.samtools, sscs_sc, sscs, sscs_cor, sing_cor)
-        print(merge_sc)
-        call(merge_sc.split(' '))
+        pysam.merge("-f", sscs_sc, sscs, sscs_cor, sing_cor)
         sscs_sc = sort_index(sscs_sc)
 
         ############
@@ -290,12 +279,9 @@ def consensus(args):
         # All Unique Molecules #
         ########################
         # Merge DCS_SC + SSCS_SC singletons + uncorrected singletons
-        all_unique = '{}/dcs_sc/{}.all.unique.dcs.bam'.format(
-            sample_dir, identifier)
-        merge_all_unique = "{} merge {} {} {} {}".format(
-            args.samtools, all_unique, dcs_sc, sscs_sc_sing, uncorrected).split(' ')
+        all_unique = '{}/dcs_sc/{}.all.unique.dcs.bam'.format(sample_dir, identifier)
+        pysam.merge("-f", all_unique, dcs_sc, sscs_sc_sing, uncorrected)
         print(all_unique)
-        call(merge_all_unique)
         all_unique = sort_index(all_unique)
 
         # Move stats and time tracker file to sample_dir
@@ -382,7 +368,6 @@ if __name__ == '__main__':
                     " '_R'."
     bwa_help = "Path to executable bwa. [MANDATORY]"
     picard_help = "Path to executable picard add readgroups. [MANDATORY]"
-    samtools_help = "Path to executable samtools. [MANDATORY]"
     ref_help = "Reference (BWA index). [MANDATORY]"
     genome_help = "Genome version (e.g. hg19 or hg38), default: hg19"
     bpattern_help = "Barcode pattern (N = random barcode bases, A|C|G|T = fixed spacer bases)."
@@ -415,7 +400,6 @@ if __name__ == '__main__':
                     "bwa": bwa_help,
                     "picard": picard_help,
                     "ref": ref_help,
-                    "samtools": samtools_help,
                     "bpattern": None,
                     "blist": None,
                     "bam": bam_help,                   
@@ -447,7 +431,6 @@ if __name__ == '__main__':
     sub_a.add_argument('-b', '--bwa', metavar="BWA", help=bwa_help, type=str)
     sub_a.add_argument('-g', '--picard', metavar="PICARD", help=picard_help, type=str)
     sub_a.add_argument('-r', '--ref', metavar="REF", help=ref_help, type=str)
-    sub_a.add_argument('-s', '--samtools', metavar="SAMTOOLS", help=samtools_help, type=str)
     sub_a.add_argument('-p', '--bpattern', metavar="PATTERN", type=str, help=bpattern_help)
     sub_a.add_argument('-l', '--blist', metavar="LIST", type=str, help=blist_help)
     sub_a.set_defaults(func=fastq2bam)
@@ -468,12 +451,6 @@ if __name__ == '__main__':
         required=True,
         type=str,
         help=coutput_help)
-    sub_b.add_argument(
-        '-s',
-        '--samtools',
-        metavar="SAMTOOLS",
-        help=samtools_help,
-        type=str)
     sub_b.add_argument(
         '--scorrect',
         help=scorrect_help,
@@ -524,7 +501,7 @@ if __name__ == '__main__':
 
             # Check if required arguments provided
             if args.fastq1 is None or args.fastq2 is None or args.output is None or args.bwa is None or \
-                    args.ref is None or args.samtools is None:
+                    args.ref is None:
                 sub_a.print_help()
             # Check if either barcode pattern or list is set. At least one must
             # be provided.
@@ -550,7 +527,7 @@ if __name__ == '__main__':
             if sub_args.config:
                 sub_b.parse_known_args(remaining_args)
             # Check if required arguments provided
-            if args.bam is None or args.c_output is None or args.samtools is None:
+            if args.bam is None or args.c_output is None:
                 sub_b.print_help()
             else:
                 args.func(args)
