@@ -1,0 +1,24 @@
+{
+  "defaults": {
+    "description": "ConsensusCruncher workflow test",
+    "metrics_calculate": "calculate.sh",
+    "metrics_compare": "compare.sh",
+    "output_metrics_dir": "/.mounts/labs/gsi/testdata/consensusCruncher/output_metrics/1.0",
+    "parameters": {
+      "wdl_options": {
+        "write_to_cache": false,
+        "read_from_cache": false
+      }
+    }
+  },
+  "tests": [{
+    "id": "consensusCruncher_Test",
+    "parameters": {
+      "wdl_inputs": {
+        "consensusCruncher.fastqR1": "/.mounts/labs/gsi/testdata/consensusCruncher/input_data/consenusCruncher_test_R1_001.fastq.gz",
+        "consensusCruncher.fastqR2": "/.mounts/labs/gsi/testdata/consensusCruncher/input_data/consenusCruncher_test_R2_001.fastq.gz",
+        "consensusCruncher.outputFileNamePrefix": "consenusCruncher_test"
+      }
+    }
+  }]
+}

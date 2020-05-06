@@ -1,0 +1,5 @@
+{
+  "consensusCruncher.fastqR1": "/.mounts/labs/gsi/testdata/consensusCruncher/input_data/consenusCruncher_test_R1_001.fastq.gz",
+  "consensusCruncher.fastqR2": "/.mounts/labs/gsi/testdata/consensusCruncher/input_data/consenusCruncher_test_R2_001.fastq.gz",
+  "consensusCruncher.outputFileNamePrefix": "consenusCruncher_test"
+}
