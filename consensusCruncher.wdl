@@ -102,7 +102,6 @@ task align {
     bwaref: "Path to bwa index"
     samtools: "Path to samtools binary"
     blist: "Path to blacklist for barcodes"
-    name: "File name taken to the left of this string"
     threads: "Number of threads to request"
     jobMemory: "Memory allocated for this job"
     timeout: "Hours before task timeout"
