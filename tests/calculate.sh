@@ -5,5 +5,6 @@ set -o pipefail
 
 cd $1
 
-find . -regex '.*\.tsv$' -exec wc -l {} \;
-ls *.tsv | sed 's/.*\.//' | sort | uniq -c
+module load samtools/1.9 2>/dev/null
+find . -regex '.*\.bam$' -exec samtools flagstat {} \;
+ls | sed 's/.*\.//' | sort | uniq -c
