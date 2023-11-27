@@ -114,6 +114,7 @@ def fastq2bam(args):
     
     #bwa_id = "@RG\tID:1\tSM:" + filename + "\tPL:Illumina"
     bwa_args = '{} {}_barcode_R1.fastq {}_barcode_R2.fastq'.format(args.ref, outfile, outfile)
+    bwa_args = bwa_args + f'- R {args.readGroups}'
     
     bwa_cmd = args.bwa + ' mem -M -t4 ' + bwa_args
     print(bwa_cmd)
@@ -384,6 +385,7 @@ if __name__ == '__main__':
     # fastq2bam arg help messages
     fastq1_help = "FASTQ containing Read 1 of paired-end reads."
     fastq2_help = "FASTQ containing Read 2 of paired-end reads."
+    readGroup_help = "The readgroup information to be injected into the bam header"
     output_help = "Output directory, where barcode extracted FASTQ and BAM files will be placed in " \
                   "subdirectories 'fastq_tag' and 'bamfiles' respectively (dir will be created if they " \
                   "do not exist)."
@@ -420,6 +422,7 @@ if __name__ == '__main__':
         defaults = {"fastq1": fastq1_help,
                     "fastq2": fastq2_help,
                     "output": output_help,
+                    "readGroup": readGroup_help,
                     "name": "_R",
                     "bwa": bwa_help,
                     "picard": picard_help,
@@ -451,6 +454,7 @@ if __name__ == '__main__':
     # Parse commandline arguments
     sub_a.add_argument('--fastq1', dest='fastq1', metavar="FASTQ1", type=str, help=fastq1_help)
     sub_a.add_argument('--fastq2', dest='fastq2', metavar="FASTQ2", type=str, help=fastq2_help)
+    sub_a.add_argument('--readGroups', dest='readGroups', type=str, help=readGroup_help)
     sub_a.add_argument('-o', '--output', dest='output', type=str, help=output_help)
     sub_a.add_argument('-n', '--name', metavar="FILENAME", type=str, help=filename_help)
     sub_a.add_argument('-b', '--bwa', metavar="BWA", help=bwa_help, type=str)
