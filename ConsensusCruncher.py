@@ -106,9 +106,9 @@ def fastq2bam(args):
     #############
     # Command split into chunks and bwa_id retained as str repr
     bwa_cmd = args.bwa + ' mem -M -t4 -R'
-    bwa_id = "@RG\tID:1\tSM:" + filename + "\tPL:Illumina"
+    bwa_id = args.readGroup
     bwa_args = '{} {}_barcode_R1.fastq {}_barcode_R2.fastq'.format(args.ref, outfile, outfile)
-
+    
     bwa = Popen(bwa_cmd.split(' ') + [bwa_id] + bwa_args.split(' '), stdout=PIPE)
     # Sort BAM (BWA output piped into samtools for sorting before writing into bam)
     sam1 = Popen((args.samtools + ' view -bhS -').split(' '), stdin=bwa.stdout, stdout=PIPE)
@@ -346,6 +346,7 @@ if __name__ == '__main__':
     # fastq2bam arg help messages
     fastq1_help = "FASTQ containing Read 1 of paired-end reads. [MANDATORY]"
     fastq2_help = "FASTQ containing Read 2 of paired-end reads. [MANDATORY]"
+    readGroup_help = "The readGroup information to be injected into the bam header"
     output_help = "Output directory, where barcode extracted FASTQ and BAM files will be placed in " \
                   "subdirectories 'fastq_tag' and 'bamfiles' respectively (dir will be created if they " \
                   "do not exist). [MANDATORY]"
@@ -383,6 +384,7 @@ if __name__ == '__main__':
         defaults = {"fastq1": fastq1_help,
                     "fastq2": fastq2_help,
                     "output": output_help,
+                    "readGroup": readGroup_help,
                     "name": "_R",
                     "bwa": bwa_help,
                     "ref": ref_help,
@@ -413,6 +415,7 @@ if __name__ == '__main__':
     # Parse commandline arguments
     sub_a.add_argument('--fastq1', dest='fastq1', metavar="FASTQ1", type=str, help=fastq1_help)
     sub_a.add_argument('--fastq2', dest='fastq2', metavar="FASTQ2", type=str, help=fastq2_help)
+    sub_a.add_argument('--readGroup', dest='readGroup', type=str, help=readGroup_help)
     sub_a.add_argument('-o', '--output', dest='output', type=str, help=output_help)
     sub_a.add_argument('-n', '--name', metavar="FILENAME", type=str, help=filename_help)
     sub_a.add_argument('-b', '--bwa', metavar="BWA", help=bwa_help, type=str)
