@@ -183,6 +183,13 @@ def main():
         help="List of correct barcodes",
         default=None,
         required=False)
+    parser.add_argument(
+        "--skipcheck", 
+        action="store_true", 
+        dest="skipcheck", 
+        help="Skip the barcode check",
+        default=None, 
+        required=False)
     args = parser.parse_args()
 
     ######################

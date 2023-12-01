@@ -116,7 +116,7 @@ def fastq2bam(args):
     # Sort BAM (BWA output piped into samtools for sorting before writing into bam)
     sam1 = Popen((args.samtools + ' view -bhS -').split(' '), stdin=bwa.stdout, stdout=PIPE)
     sam2 = Popen((args.samtools + ' sort -').split(' '), stdin=sam1.stdout,
-                  stdout=open('{}/{}.sort.bam'.format(bam_dir, filename), 'w'))
+                  stdout=open('{}/{}.sorted.bam'.format(bam_dir, filename), 'w'))
     
     sam2.communicate()
     
