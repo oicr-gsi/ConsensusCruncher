@@ -79,7 +79,10 @@ def fastq2bam(args):
     else:
         extractb_cmd = "{}/ConsensusCruncher/extract_barcodes.py --read1 {} --read2 {} --outfile {} --blist {}".format(
             code_dir, args.fastq1, args.fastq2, outfile, args.blist)
-    
+
+    if args.skipcheck:
+        extractb_cmd = extractb_cmd + " --skipcheck"
+
     print(extractb_cmd)
     os.system(extractb_cmd)
 
@@ -93,7 +96,7 @@ def fastq2bam(args):
         if not os.path.exists(barcode_dist_dir) and os.access(args.output, os.W_OK):
             os.makedirs(barcode_dist_dir)
 
-        # Move files 
+        # Move files
         os.rename('{}/{}_r1_bad_barcodes.txt'.format(fastq_dir, filename),
               '{}/{}_r1_bad_barcodes.txt'.format(bad_barcode_dir, filename))
         os.rename('{}/{}_r2_bad_barcodes.txt'.format(fastq_dir, filename),
@@ -105,28 +108,17 @@ def fastq2bam(args):
     # BWA Align #
     #############
     # Command split into chunks and bwa_id retained as str repr
-    picard =  'java -jar ' + args.picard + ' AddOrReplaceReadGroups' # "java -jar /mnt/work1/software/picard/2.10.9/picard.jar AddOrReplaceReadGroups"
-    
-    #bwa_cmd = args.bwa + ' mem -M -t4 -R'
-    #bwa_id = "@RG\tID:1\tSM:" + filename + "\tPL:Illumina"
-        
-    bwa_cmd = args.bwa + 'mem -M -t4'
-    
-    #bwa_id = "@RG\tID:1\tSM:" + filename + "\tPL:Illumina"
+    bwa_cmd = args.bwa + ' mem -M -t4 -R'
+    bwa_id = args.readGroup
     bwa_args = '{} {}_barcode_R1.fastq {}_barcode_R2.fastq'.format(args.ref, outfile, outfile)
     
-    bwa_cmd = args.bwa + ' mem -M -t4 ' + bwa_args
-    print(bwa_cmd)
-    bwa = Popen(bwa_cmd.split(' '), stdout=PIPE)
-    #print(bwa)
-    # # Sort BAM (BWA output piped into samtools for sorting before writing into bam)
+    bwa = Popen(bwa_cmd.split(' ') + [bwa_id] + bwa_args.split(' '), stdout=PIPE)
+    # Sort BAM (BWA output piped into samtools for sorting before writing into bam)
     sam1 = Popen((args.samtools + ' view -bhS -').split(' '), stdin=bwa.stdout, stdout=PIPE)
     sam2 = Popen((args.samtools + ' sort -').split(' '), stdin=sam1.stdout,
-                  stdout=open('{}/{}.sort.bam'.format(bam_dir, filename), 'w'))
+                  stdout=open('{}/{}.sorted.bam'.format(bam_dir, filename), 'w'))
     
     sam2.communicate()
-    
-    os.system(picard + ' I=' + '{}/{}.sort.bam'.format(bam_dir, filename) +' O=' + '{}/{}.sorted.bam'.format(bam_dir, filename) + ' RGID=1 ' + ' RGPL=Illumina  RGLB=lib1 RGPU=unit1 ' + ' RGSM='+ filename )
     
     # Index BAM
     call("{} index {}/{}.sorted.bam".format(args.samtools, bam_dir, filename).split(' '))
@@ -382,20 +374,21 @@ if __name__ == '__main__':
     sub_b = sub.add_parser('consensus', help=mode_consensus_help)
 
     # fastq2bam arg help messages
-    fastq1_help = "FASTQ containing Read 1 of paired-end reads."
-    fastq2_help = "FASTQ containing Read 2 of paired-end reads."
+    fastq1_help = "FASTQ containing Read 1 of paired-end reads. [MANDATORY]"
+    fastq2_help = "FASTQ containing Read 2 of paired-end reads. [MANDATORY]"
+    readGroup_help = "The readGroup information to be injected into the bam header"
     output_help = "Output directory, where barcode extracted FASTQ and BAM files will be placed in " \
                   "subdirectories 'fastq_tag' and 'bamfiles' respectively (dir will be created if they " \
                   "do not exist)."
     filename_help = "Output filename. If none provided, default will extract output name by taking everything left of" \
                     " '_R'."
     bwa_help = "Path to executable bwa. [MANDATORY]"
-    picard_help = "Path to executable picard add readgroups. [MANDATORY]"
     samtools_help = "Path to executable samtools. [MANDATORY]"
     ref_help = "Reference (BWA index). [MANDATORY]"
     genome_help = "Genome version (e.g. hg19 or hg38), default: hg19"
-    bpattern_help = "Barcode pattern (N = random barcode bases, A|C|G|T = fixed spacer bases)."
-    blist_help = "List of barcodes (Text file with unique barcodes on each line)."
+    bpattern_help = "Barcode pattern (N = random barcode bases, A|C|G|T = fixed spacer bases). [MANDATORY]"
+    blist_help = "List of barcodes (Text file with unique barcodes on each line). [MANDATORY]"
+    skipcheck_help = "skips the check for a valid list of variable length barcodes"
     bdelim_help = "Delimiter before barcode in read name " \
                   "(e.g. '|' in 'HWI-D00331:196:C900FANXX:7:1110:14056:43945|TTTT')"
 
@@ -420,9 +413,9 @@ if __name__ == '__main__':
         defaults = {"fastq1": fastq1_help,
                     "fastq2": fastq2_help,
                     "output": output_help,
+                    "readGroup": readGroup_help,
                     "name": "_R",
                     "bwa": bwa_help,
-                    "picard": picard_help,
                     "ref": ref_help,
                     "samtools": samtools_help,
                     "bpattern": None,
@@ -451,14 +444,15 @@ if __name__ == '__main__':
     # Parse commandline arguments
     sub_a.add_argument('--fastq1', dest='fastq1', metavar="FASTQ1", type=str, help=fastq1_help)
     sub_a.add_argument('--fastq2', dest='fastq2', metavar="FASTQ2", type=str, help=fastq2_help)
+    sub_a.add_argument('--readGroup', dest='readGroup', type=str, help=readGroup_help)
     sub_a.add_argument('-o', '--output', dest='output', type=str, help=output_help)
     sub_a.add_argument('-n', '--name', metavar="FILENAME", type=str, help=filename_help)
     sub_a.add_argument('-b', '--bwa', metavar="BWA", help=bwa_help, type=str)
-    sub_a.add_argument('-g', '--picard', metavar="PICARD", help=picard_help, type=str)
     sub_a.add_argument('-r', '--ref', metavar="REF", help=ref_help, type=str)
     sub_a.add_argument('-s', '--samtools', metavar="SAMTOOLS", help=samtools_help, type=str)
     sub_a.add_argument('-p', '--bpattern', metavar="PATTERN", type=str, help=bpattern_help)
     sub_a.add_argument('-l', '--blist', metavar="LIST", type=str, help=blist_help)
+    sub_a.add_argument('-x', '--skipcheck', action='store_true',help=skipcheck_help)
     sub_a.set_defaults(func=fastq2bam)
 
     # Set args for 'consensus' mode
