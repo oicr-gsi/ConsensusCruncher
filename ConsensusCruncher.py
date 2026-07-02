@@ -141,10 +141,15 @@ def consensus(args):
 
     code_dir = os.path.dirname(os.path.realpath(__file__))
 
-    # Change bedfile if genome is hg38
+    # Change bedfile if genome is hg38 or hg38_noAlt
     if args.genome == 'hg38':
         # Determine code directory and set bedfile to split data
         args.bedfile = '{}/ConsensusCruncher/hg38_cytoBand.txt'.format(
+            code_dir)
+
+    elif args.genome == 'hg38_noAlt':
+        # Determine code directory and set bedfile to split data
+        args.bedfile = '{}/ConsensusCruncher/hg38_noAlt_cytoBand.txt'.format(
             code_dir)
 
     # Create sample directory to hold consensus sequences
@@ -385,7 +390,7 @@ if __name__ == '__main__':
     bwa_help = "Path to executable bwa. [MANDATORY]"
     samtools_help = "Path to executable samtools. [MANDATORY]"
     ref_help = "Reference (BWA index). [MANDATORY]"
-    genome_help = "Genome version (e.g. hg19 or hg38), default: hg19"
+    genome_help = "Genome version (e.g. hg19, hg38 or hg38_noAlt), default: hg19"
     bpattern_help = "Barcode pattern (N = random barcode bases, A|C|G|T = fixed spacer bases). [MANDATORY]"
     blist_help = "List of barcodes (Text file with unique barcodes on each line). [MANDATORY]"
     skipcheck_help = "skips the check for a valid list of variable length barcodes"
@@ -397,7 +402,7 @@ if __name__ == '__main__':
     coutput_help = "Output directory, where a folder will be created for the BAM file and consensus sequences."
     scorrect_help = "Singleton correction, default: True."
     bedfile_help = "Bedfile, default: cytoBand.txt. WARNING: It is HIGHLY RECOMMENDED that you use the default " \
-                   "cytoBand.txt unless you're working with genome build that is not hg19 or hg38. Then a separate " \
+                   "cytoBand.txt unless you're working with genome build that is not hg19, hg38 or hg38_noAlt. Then a separate " \
                    "bedfile is needed for data segmentation (file can be formatted with the bed_separator.R tool). " \
                    "For small BAM files, you may choose to turn off data splitting with '-b False' and process " \
                    "everything all at once (Division of data is only required for large data sets to offload the " \
@@ -491,7 +496,8 @@ if __name__ == '__main__':
         help=genome_help,
         choices=[
             'hg19',
-            'hg38'])
+            'hg38',
+            'hg38_noAlt'])
     sub_b.add_argument('-b', '--bedfile', help=bedfile_help, type=str)
     sub_b.add_argument(
         '--cutoff',
